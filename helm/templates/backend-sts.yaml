@@ -38,7 +38,7 @@ spec:
         storageClassName: "sujitha-sc"
         resources:
           requests:
-            capacity: 2Gi
+            storage: 2Gi
     
 
     
