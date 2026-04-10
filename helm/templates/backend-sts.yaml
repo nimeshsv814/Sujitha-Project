@@ -31,14 +31,14 @@ spec:
             - name: mongo-vct
               mountPath: /data/db
   volumeClaimTemplates:
-    metadata:
-      name: mongo-vct
-    spec:
-      accessModes: ["ReadWriteMany"]
-      storageClassName: sujitha-sc
-      resources:
-        requests:
-          capacity: "2Gi"
+    - metadata:
+        name: mongo-vct
+      spec:
+        accessModes: ["ReadWriteMany"]
+        storageClassName: "sujitha-sc"
+        resources:
+          requests:
+            capacity: 2Gi
     
 
     
