@@ -1,196 +1,57 @@
-name: Build → Push to ECR → Deploy to EC2 (ECR only)
+name: Build
 
 on:
   push:
     branches:
-      - main
       - master
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Image tag to build & deploy (format: vMAJOR.MINOR.PATCH, e.g. v1.0.0)'
-        required: true
-        default: 'v1.0.0'
 
-env:
-  ECR_REGISTRY: "909688465000.dkr.ecr.ap-south-1.amazonaws.com"
-  ECR_REPOSITORY: "ust/training"
-  AWS_REGION: "ap-south-1"
-  EC2_USER: "ec2-user"
-  EC2_HOST: "ec2-15-207-98-178.ap-south-1.compute.amazonaws.com"
-  EC2_SSH_PORT: "22"
-  CONTAINER_NAME: "ust-training-app"
-  HEALTHCHECK_PATH: "/"
-  HEALTHCHECK_PORT: "3000"
-  HEALTHCHECK_RETRIES: "12"
-  HEALTHCHECK_SLEEP_SECONDS: "5"
 
 jobs:
-  build-push-deploy:
+  build:
+    name: Build and analyze
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
+    
     steps:
-      - name: Validate tag
-        id: validate
-        run: |
-          TAG="${{ github.event.inputs.tag }}"
-          if ! echo "$TAG" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "::error::Tag must be vMAJOR.MINOR.PATCH (e.g. v1.0.0)"
-            exit 1
-          fi
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-
-      - name: Configure AWS creds for runner
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Ensure ECR repo exists
-        run: |
-          aws ecr describe-repositories --repository-names "${ECR_REPOSITORY}" >/dev/null 2>&1 || \
-            aws ecr create-repository --repository-name "${ECR_REPOSITORY}" >/dev/null
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+      - name: Snyk Initialize Backend
+        uses: snyk/actions/node@master
         env:
-          ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
-
-      - name: Login Docker to ECR (runner)
-        run: |
-          aws ecr get-login-password --region "${AWS_REGION}" | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
-        env:
-          AWS_REGION: ${{ env.AWS_REGION }}
-          ECR_REGISTRY: ${{ env.ECR_REGISTRY }}
-
-      - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build & push image to ECR
-        id: build
-        uses: docker/build-push-action@v5
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ steps.validate.outputs.tag }}
-
-      - name: Deploy to EC2 via SSH (appleboy) — AL2023-aware
-        id: deploy_ssh
-        uses: appleboy/ssh-action@v0.1.7
-        with:
-          host: ${{ env.EC2_HOST }}
-          username: ${{ env.EC2_USER }}
-          key: ${{ secrets.AWS_KEY_PAIR }}
-          port: ${{ env.EC2_SSH_PORT }}
-          timeout: 10m
-          script: |
-            set -euxo pipefail
-
-            ECR_REGISTRY="${{ env.ECR_REGISTRY }}"
-            ECR_REPOSITORY="${{ env.ECR_REPOSITORY }}"
-            AWS_REGION="${{ env.AWS_REGION }}"
-            CONTAINER_NAME="${{ env.CONTAINER_NAME }}"
-            TAG="${{ steps.validate.outputs.tag }}"
-            IMAGE="${ECR_REGISTRY}/${ECR_REPOSITORY}:${TAG}"
-
-            AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
-            AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
-            export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_REGION
-
-            echo "Remote: starting deployment for ${IMAGE}"
-
-            if [ -f /etc/os-release ]; then
-              . /etc/os-release
-              OS_ID="$ID"
-              OS_VER="$VERSION_ID"
-            else
-              OS_ID="unknown"
-              OS_VER="unknown"
-            fi
-            echo "Remote: detected OS = ${OS_ID} ${OS_VER}"
-
-            if ! command -v docker >/dev/null 2>&1; then
-              echo "Remote: Docker not found — installing..."
-              if [ "${OS_ID}" = "amzn" ] && [ "${OS_VER%%.*}" -ge 2023 ]; then
-                sudo dnf -y install docker
-                sudo systemctl enable --now docker
-              elif command -v amazon-linux-extras >/dev/null 2>&1; then
-                sudo amazon-linux-extras install docker -y
-                sudo systemctl enable --now docker
-              elif command -v yum >/dev/null 2>&1; then
-                sudo yum install -y docker
-                sudo systemctl enable --now docker
-              else
-                curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
-                sudo sh /tmp/get-docker.sh
-              fi
-              if id ec2-user >/dev/null 2>&1; then
-                sudo usermod -aG docker ec2-user || true
-              fi
-            else
-              echo "Remote: docker already present: $(docker --version)"
-            fi
-
-            if ! command -v aws >/dev/null 2>&1; then
-              echo "Remote: Installing AWS CLI v2..."
-              sudo dnf -y install unzip || sudo yum -y install unzip || sudo apt-get install -y unzip || true
-              curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
-              unzip -q /tmp/awscliv2.zip -d /tmp
-              sudo /tmp/aws/install || true
-            fi
-
-            echo "Remote: logging into ECR and pulling ${IMAGE}"
-            aws ecr get-login-password --region "${AWS_REGION}" | docker login --username AWS --password-stdin "${ECR_REGISTRY}"
-            docker pull "${IMAGE}"
-
-            if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-              docker rm -f "${CONTAINER_NAME}" || true
-            fi
-
-            docker run -d --name "${CONTAINER_NAME}" --restart unless-stopped -p 3000:3000 "${IMAGE}"
-
-            echo "Remote: deployment finished"
-            docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"
+          command: monitor
+          args: --file=package.json
+      - uses: SonarSource/sonarqube-scan-action@v6
         env:
-          AWS_REGION: ${{ env.AWS_REGION }}
-          ECR_REGISTRY: ${{ env.ECR_REGISTRY }}
-          ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
-          CONTAINER_NAME: ${{ env.CONTAINER_NAME }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
-      # - name: Wait for app and perform health-check
-      #   id: health
-      #   run: |
-      #     HOST="${{ env.EC2_HOST }}"
-      #     PATH="${{ env.HEALTHCHECK_PATH }}"
-      #     PORT="${{ env.HEALTHCHECK_PORT }}"
-      #     RETRIES=${{ env.HEALTHCHECK_RETRIES }}
-      #     SLEEP=${{ env.HEALTHCHECK_SLEEP_SECONDS }}
-      #
-      #     URL="http://${HOST}:${PORT}${PATH}"
-      #     echo "Waiting for ${URL} to return HTTP 200..."
-      #
-      #     i=0
-      #     while [ $i -lt $RETRIES ]; do
-      #       if curl -s -f -m 5 "${URL}" >/dev/null 2>&1; then
-      #         echo "Health check passed on attempt $((i+1))"
-      #         exit 0
-      #       fi
-      #       echo "Attempt $((i+1)) failed — retrying in ${SLEEP}s..."
-      #       i=$((i+1))
-      #       sleep ${SLEEP}
-      #     done
-      #
-      #     echo "::error::Health check failed after ${RETRIES} attempts: ${URL}"
-      #     exit 1
-
-      - name: Deployment result
-        if: success()
-        run: |
-          echo "Deployment succeeded!"
-          echo "Application deployed successfully on EC2."
+      - name: SonarQube Quality Gate Check
+        uses: SonarSource/sonarqube-quality-gate-action@v1
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          
+      - name: Send Email Notification
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "GitHub Actions Build Status"
+          to: nimeshsv814@gmail.com
+          from: nimeshsv814@gmail.com
+          body: |
+            Build Status: ${{ job.status }}
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref }}
+            Commit: ${{ github.sha }}
+      # If you wish to fail your job when the Quality Gate is red, uncomment the
+      # following lines. This would typically be used to fail a deployment.
+      # - uses: SonarSource/sonarqube-quality-gate-action@v1
+      #   timeout-minutes: 5
+      #   env:
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
