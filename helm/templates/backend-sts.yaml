@@ -30,7 +30,7 @@ spec:
           volumeMounts:
             - name: mongo-vct
               mountPath: /data/db
-  volumeClaimTemplate:
+  volumeClaimTemplates:
     metadata:
       name: mongo-vct
     spec:
