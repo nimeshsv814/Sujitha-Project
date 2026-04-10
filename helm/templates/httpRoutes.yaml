@@ -12,11 +12,11 @@ spec:
             type: PathPrefix
             value: /
       filters:
-        type: URLRewrite
-        urlRewrite:
-          path:
-            type: ReplacePrefixMatch
-            replacePrefixMatch: /
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
       backendRefs:
         - name: sujitha-svc
           port: 3000
