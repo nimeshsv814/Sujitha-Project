@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sujitha-deploy
+  namespace: suji-ns
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sujitha-f
+  strategy:
+    type: RollingUpdate
+    rollingUpdates:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: sujitha-f
+    spec:
+      containers:
+        - name: sujitha-cont
+          image: nimeshsv814/sujitha-project:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  - name: sujitha-secret
+                    key: MONGO_URI
+            - name: PORT
+              valueFrom:
+                secretKeyRef:
+                  - name: sujitha-secret
+                    key: PORT
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "200m"
+              memory: "512Mi"

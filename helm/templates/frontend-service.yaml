@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sujitha-svc
+  namespace: suji-ns
+spec:
+  selector:
+    app: sujitha-f
+  ports:
+    - port: 3000
+      targetPort: 3000
+  type: ClusterIP
