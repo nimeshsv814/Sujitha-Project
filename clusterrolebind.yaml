@@ -10,3 +10,26 @@ roleRef:
   kind: ClusterRole
   name: cluster-role
   apiGroup: rbac.authorization.k8s.io
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  

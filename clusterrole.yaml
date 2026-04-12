@@ -6,3 +6,20 @@ rules:
 - apiGroups: [""]
   resources: ["nodes","namespaces","pods"]
   verbs: ["get", "watch", "list","create","patch","update","delete"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
