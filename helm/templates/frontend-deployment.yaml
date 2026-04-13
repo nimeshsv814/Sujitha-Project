@@ -19,7 +19,7 @@ spec:
         app: sujitha-f
     spec:
       nodeSelector:
-          training: devops
+        training: devops
       containers:
         - name: sujitha-cont
           image: nimeshsv814/sujitha-project:latest
