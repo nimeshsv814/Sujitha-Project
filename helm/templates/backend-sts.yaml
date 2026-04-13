@@ -17,14 +17,14 @@ spec:
       # nodeSelector:
       #   training: devops
       affinity:
-        podAffinity:
+        podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
           - labelSelector:
               matchExpressions:
               - key: app
                 operator: In
                 values:
-                  - sujitha-f
+                  - sujitha-b
             topologyKey: "kubernetes.io/hostname"
       terminationGracePeriodSeconds: 10
       containers:
