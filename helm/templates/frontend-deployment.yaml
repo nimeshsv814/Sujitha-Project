@@ -18,20 +18,20 @@ spec:
       labels:
         app: sujitha-f
     spec:
-      tolerations:
-        - key: "training"
-          operator: "Equal"
-          value: "devops"
-          effect: "NoSchedule"
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: training
-                    operator: In
-                    values:
-                    - devops
+      # tolerations:
+      #   - key: "training"
+      #     operator: "Equal"
+      #     value: "devops"
+      #     effect: "NoSchedule"
+      # affinity:
+      #   nodeAffinity:
+      #     requiredDuringSchedulingIgnoredDuringExecution:
+      #       nodeSelectorTerms:
+      #         - matchExpressions:
+      #             - key: training
+      #               operator: In
+      #               values:
+      #               - devops
       containers:
         - name: sujitha-cont
           image: nimeshsv814/sujitha-project:latest
