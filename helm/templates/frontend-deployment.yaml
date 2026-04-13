@@ -18,8 +18,15 @@ spec:
       labels:
         app: sujitha-f
     spec:
-      # nodeSelector:
-      #   training: devops
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: training
+                    operator: In
+                    values:
+                    - devops
       containers:
         - name: sujitha-cont
           image: nimeshsv814/sujitha-project:latest
