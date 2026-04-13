@@ -16,7 +16,7 @@ spec:
     spec:
       # nodeSelector:
       #   training: devops
-      affinity:
+      # affinity:
         # podAntiAffinity:
         #   requiredDuringSchedulingIgnoredDuringExecution:
         #   - labelSelector:
