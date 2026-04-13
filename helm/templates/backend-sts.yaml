@@ -14,8 +14,18 @@ spec:
       labels:
         app: sujitha-b
     spec:
-      nodeSelector:
-        training: devops
+      # nodeSelector:
+      #   training: devops
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - sujitha-f
+            topologyKey: "kubernetes.io/hostname"
       terminationGracePeriodSeconds: 10
       containers:
         - name: mongodb-cont
