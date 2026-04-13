@@ -19,7 +19,7 @@ spec:
         app: sujitha-f
     spec:
       affinity:
-        nodeAffinity:
+        nodeAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
