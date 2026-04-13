@@ -18,8 +18,13 @@ spec:
       labels:
         app: sujitha-f
     spec:
+      tolerations:
+        - key: "training"
+          operator: "Equal"
+          value: "devops"
+          effect: "NoSchedule"
       affinity:
-        nodeAntiAffinity:
+        nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
